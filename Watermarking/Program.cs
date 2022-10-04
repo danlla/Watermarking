@@ -28,7 +28,9 @@ namespace watermarking
             return includes;
         }
 
-        static bool IsLessThanHalfEmptySquare(VectorTile tile, Envelope envelope, double m, int i)
+
+
+        static bool IsLessThanHalfEmptySquare(VectorTile tile, Envelope envelope, double m, int i, int countPoint)
         {
             var countSquare = 0;
             var countEmptySqure = 0;
@@ -36,21 +38,20 @@ namespace watermarking
             {
                 for (var k = 0; k < i; k++)
                 {
-                    var mEnv = new Envelope(new Coordinate(envelope.MinX + m * j, envelope.MinY + m * k), new Coordinate(envelope.MinX + m * (j + 1), envelope.MinY + m * (k + 1)));
                     var p = new Polygon(
                         new LinearRing(
                             new Coordinate[]
                             {
-                                    new(mEnv.MinX, mEnv.MinY),
-                                    new(mEnv.MinX, mEnv.MaxY),
-                                    new(mEnv.MaxX, mEnv.MaxY),
-                                    new(mEnv.MaxX, mEnv.MinY),
-                                    new(mEnv.MinX, mEnv.MinY)
+                                    new(envelope.MinX + m * j, envelope.MinY + m * k),
+                                    new(envelope.MinX + m * j, envelope.MinY + m * (k + 1)),
+                                    new(envelope.MinX + m * (j + 1), envelope.MinY + m * (k + 1)),
+                                    new(envelope.MinX + m * (j + 1), envelope.MinY + m * k),
+                                    new(envelope.MinX + m * j, envelope.MinY + m * k)
                             }
                     )
                     );
 
-                    if (CountIncludes(tile, p) < 3)
+                    if (CountIncludes(tile, p) < countPoint)
                         countEmptySqure++;
                     countSquare++;
                 }
@@ -62,12 +63,12 @@ namespace watermarking
 
         }
 
-        static int[,] GenerateWinx(int m, int n)
+        static int[,] GenerateWinx(int m, int n, int key)
         {
             var r = (int)Math.Floor((double)m * m / n);
             Console.WriteLine($"r = {r}");
-            Random random = new Random(0);
-            int[,] winx = new int[m, m];
+            Random random = new Random(key);
+            var winx = new int[m, m];
 
             for (int i = 0; i < m; i++)
                 for (int j = 0; j < m; j++)
@@ -92,6 +93,72 @@ namespace watermarking
 
             return winx;
         }
+
+        static bool CheckNearestPoints(int[,] map, int x, int y, int value, int extent)
+        {
+            if (x < 0 || x > extent || y < 0 || y > extent)
+                return false;
+
+            if (x + 1 < extent)
+                if (map[x + 1, y] != value)
+                    return true;
+
+            if (x - 1 > 0)
+                if (map[x - 1, y] != value)
+                    return true;
+
+            if (y + 1 < extent)
+                if (map[x, y + 1] != value)
+                    return true;
+
+            if (y - 1 > 0)
+                if (map[x, y - 1] != value)
+                    return true;
+
+            return false;
+        }
+
+        static bool CheckMapPoint(int[,] map, int dist, int x, int y, int extent)
+        {
+            var value = map[x, y];
+
+            if (CheckNearestPoints(map, x, y, value, extent))
+                return true;
+            for (var i = 1; i < dist; ++i)
+            {
+                if (CheckNearestPoints(map, x + i, y, value, extent))
+                    return true;
+                if (CheckNearestPoints(map, x - i, y, value, extent))
+                    return true;
+                if (CheckNearestPoints(map, x, y + i, value, extent))
+                    return true;
+                if (CheckNearestPoints(map, x, y - i, value, extent))
+                    return true;
+            }
+            return false;
+
+        }
+
+        static int[,] ChangeMap(int[,] map, int dist, int extent)
+        {
+            for (var i = 0; i < extent; i++)
+                for (var j = 0; j < extent; j++)
+                    if (!CheckMapPoint(map, dist, i, j, extent))
+                        Console.WriteLine($"{i}, {j}, {map[i, j]}");
+            return map;
+        }
+
+        static int[,] GenerateMap(int key, int dist, int extent = 4096)
+        {
+            var map = new int[extent, extent];
+            Random random = new Random(key);
+            for (var i = 0; i < extent; i++)
+                for (var j = 0; j < extent; j++)
+                    map[i, j] = random.Next() % 2;
+            map = ChangeMap(map, dist, extent);
+            return map;
+        }
+
         static void Main(string[] args)
         {
             var path = "C:\\Users\\user\\source\\Watermarking\\828.mvt";
@@ -115,19 +182,21 @@ namespace watermarking
             Console.WriteLine(envMeters.Width);
 
             var a = 0.0;
-            var m = 30;
+            var m = 20;
             for (; m >= 2; m--)
             {
                 a = envMeters.Height / m;
-                Console.WriteLine(a);
+                Console.WriteLine($"a = {a}, m = {m}");
 
-                if (IsLessThanHalfEmptySquare(tile, envMeters, a, m))
+                if (IsLessThanHalfEmptySquare(tile, envMeters, a, m, 20))
                     break;
             }
 
             Console.WriteLine($"a = {a}, m = {m}");
 
-            var winx = GenerateWinx(m, 100);
+            var key = 0;
+
+            var winx = GenerateWinx(m, 5, key);
 
             for (var i = 0; i < m; i++)
             {
@@ -137,6 +206,33 @@ namespace watermarking
                 }
                 Console.WriteLine();
             }
+
+            var map = GenerateMap(0, 1, 10);
+
+            var count1 = 0;
+            var count0 = 0;
+
+            for (var i = 0; i < 10; i++)
+            {
+                for (var j = 0; j < 10; j++)
+                {
+                    if (map[i, j] == 1)
+                        count1++;
+                    else
+                        count0++;
+                }
+            }
+
+            for (var i = 0; i < 10; i++)
+            {
+                for (var j = 0; j < 10; j++)
+                {
+                    Console.Write($"{map[i, j]} ");
+                }
+                Console.WriteLine();
+            }
+
+            Console.WriteLine($"count 0: {count0}, count : {count1}");
 
             //Console.WriteLine(CoordinateConverter.MapSize(z));
             //var coor_min = CoordinateConverter.PositionToGlobalPixel(new double[] { env.MinX, env.MinY }, z);
