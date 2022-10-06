@@ -1,7 +1,7 @@
 ﻿using NetTopologySuite.Geometries;
 using System;
 
-namespace watermarking
+namespace Watermarking
 {
     public static class CoordinateConverter
     {
@@ -55,31 +55,41 @@ namespace watermarking
             return new Envelope(DegreesToMeters(max), DegreesToMeters(min));
         }
 
-        public static double MapSize(double zoom)
+        public static Coordinate MetersToDegrees(Coordinate coordinate)
         {
-            return Math.Ceiling(40075017 * Math.Pow(2, -zoom));
+            var x = coordinate.X * 180 / 20037508.34;
+            var y = coordinate.Y / (20037508.34 / 180);
+            y = Math.Atan(Math.Exp((Math.PI / 180) * y));
+            y /= (Math.PI / 360);
+            y -= 90;
+            return new Coordinate(x, y);
         }
 
-        private static double Clip(double n, double minValue, double maxValue)
-        {
-            return Math.Min(Math.Max(n, minValue), maxValue);
-        }
+        //public static double MapSize(double zoom)
+        //{
+        //    return Math.Ceiling(40075017 * Math.Pow(2, -zoom));
+        //}
 
-        public static double[] PositionToGlobalPixel(double[] position, int zoom)
-        {
-            var latitude = Clip(position[1], -85.05112878, 85.05112878);
-            var longitude = Clip(position[0], -180, 180);
+        //private static double Clip(double n, double minValue, double maxValue)
+        //{
+        //    return Math.Min(Math.Max(n, minValue), maxValue);
+        //}
 
-            var x = (longitude + 180) / 360;
-            var sinLatitude = Math.Sin(latitude * Math.PI / 180);
-            var y = 0.5 - Math.Log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
+        //public static double[] PositionToGlobalPixel(double[] position, int zoom)
+        //{
+        //    var latitude = Clip(position[1], -85.05112878, 85.05112878);
+        //    var longitude = Clip(position[0], -180, 180);
 
-            var mapSize = MapSize(zoom);
+        //    var x = (longitude + 180) / 360;
+        //    var sinLatitude = Math.Sin(latitude * Math.PI / 180);
+        //    var y = 0.5 - Math.Log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
 
-            return new double[] {
-                 Clip(x * mapSize + 0.5, 0, mapSize - 1),
-                 Clip(y * mapSize + 0.5, 0, mapSize - 1)
-            };
-        }
+        //    var mapSize = MapSize(zoom);
+
+        //    return new double[] {
+        //         Clip(x * mapSize + 0.5, 0, mapSize - 1),
+        //         Clip(y * mapSize + 0.5, 0, mapSize - 1)
+        //    };
+        //}
     }
 }
