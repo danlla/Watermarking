@@ -216,13 +216,27 @@ namespace Watermarking
         static void Main(string[] args)
         {
             var path = "C:\\Users\\user\\source\\Watermarking\\828.mvt";
-            //using var fileStream = new FileStream(path, FileMode.Open);
+
 
             var z = 11;
             var x = 359;
             var y = 828;
 
+            //using var fileStream = new FileStream(path, FileMode.Open);
+            //var reader = new MapboxTileReader();
+            //var tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+
+
             var watermark = new Watermark(path, x, y, z, 0, 8);
+
+            using var fileStream3 = new FileStream(path, FileMode.Open);
+            var reader = new MapboxTileReader();
+            var tile = reader.Read(fileStream3, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+
+            var path2 = "C:\\Users\\user\\source\\Watermarking\\test.mvt";
+
+            using var fileStream = new FileStream(path2, FileMode.Create);
+            MapboxTileWriter.Write(tile, fileStream);
 
             var bytes = new byte[] { 0x10 };
 
@@ -230,6 +244,44 @@ namespace Watermarking
             var delta2 = 0.1;
 
             watermark.Embed(bytes, t2, delta2);
+
+            Console.WriteLine("\nsecond embed\n");
+
+            watermark.Embed(bytes, t2, delta2);
+
+
+            //using var fileStream = new FileStream(path2, FileMode.Create);
+
+            var tileWithWatermark = watermark._tile;
+            //tile.Write(fileStream);
+
+            //using var fileStream2 = new FileStream(path2, FileMode.Open);
+            //var reader2 = new MapboxTileReader();
+            //var tileOpen = reader2.Read(fileStream2, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+
+            var countChanges = 0;
+            var count = 0;
+            for (var i = 0; i < tile.Layers.Count; ++i)
+                for (var j = 0; j < tile.Layers[i].Features.Count; ++j)
+                {
+                    //for (var k = 0; k < tile.Layers[i].Features[j].Geometry.Coordinates.Length; k++)
+                    //{
+                    //    if (!tile.Layers[i].Features[j].Geometry.Coordinates[k].Equals(tileWithWatermark.Layers[i].Features[j].Geometry.Coordinates[k]))
+                    //        Console.WriteLine("HERE\n");
+                    //}
+                    //Console.WriteLine($"tile original : {tile.Layers[i].Features[j].Geometry}");
+                    //Console.WriteLine($"tile watermark: {tileWithWatermark.Layers[i].Features[j].Geometry}");
+                    if (tile.Layers[i].Features[j].Geometry != tileWithWatermark.Layers[i].Features[j].Geometry)
+                    {
+                        ++countChanges;
+                        //Console.WriteLine("HERE\n");
+                    }
+                    ++count;
+                }
+
+            Console.WriteLine($"count: {count}, count changes: {countChanges}");
+
+            Console.WriteLine(tile.Equals(tileWithWatermark));
             //var reader = new MapboxTileReader();
             //var tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
 
