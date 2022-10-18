@@ -55,6 +55,17 @@ namespace Watermarking
             return new Envelope(DegreesToMeters(max), DegreesToMeters(min));
         }
 
+        public static Geometry DegreesToMeters(Geometry geometry)
+        {
+            for (var i = 0; i < geometry.Coordinates.Length; i++)
+            {
+                var coordinateMeters = DegreesToMeters(geometry.Coordinates[i]);
+                geometry.Coordinates[i].X = coordinateMeters.X;
+                geometry.Coordinates[i].Y = coordinateMeters.Y;
+            }
+            return geometry;
+        }
+
         public static Coordinate MetersToDegrees(Coordinate coordinate)
         {
             var x = coordinate.X * 180 / 20037508.34;
@@ -64,32 +75,5 @@ namespace Watermarking
             y -= 90;
             return new Coordinate(x, y);
         }
-
-        //public static double MapSize(double zoom)
-        //{
-        //    return Math.Ceiling(40075017 * Math.Pow(2, -zoom));
-        //}
-
-        //private static double Clip(double n, double minValue, double maxValue)
-        //{
-        //    return Math.Min(Math.Max(n, minValue), maxValue);
-        //}
-
-        //public static double[] PositionToGlobalPixel(double[] position, int zoom)
-        //{
-        //    var latitude = Clip(position[1], -85.05112878, 85.05112878);
-        //    var longitude = Clip(position[0], -180, 180);
-
-        //    var x = (longitude + 180) / 360;
-        //    var sinLatitude = Math.Sin(latitude * Math.PI / 180);
-        //    var y = 0.5 - Math.Log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
-
-        //    var mapSize = MapSize(zoom);
-
-        //    return new double[] {
-        //         Clip(x * mapSize + 0.5, 0, mapSize - 1),
-        //         Clip(y * mapSize + 0.5, 0, mapSize - 1)
-        //    };
-        //}
     }
 }
