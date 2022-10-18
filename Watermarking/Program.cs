@@ -105,7 +105,7 @@ namespace Watermarking
             Console.WriteLine(count);
             Console.WriteLine(watermark.CountOutside());
 
-            var resBytes = w.CheckWatermark(t2);
+            var resBytes = w.GetWatermark(t2);
 
             for (var i = 0; i < size / 8; i++)
                 Console.WriteLine($"{resBytes[i]:x}");
@@ -124,7 +124,7 @@ namespace Watermarking
             Console.WriteLine(count);
             Console.WriteLine(watermark.CountOutside());
 
-            var res = ww.CheckWatermark(t2);
+            var res = ww.GetWatermark(t2);
             for (var i = 0; i < size / 8; i++)
                 Console.WriteLine($"{res[i]:x}");
         }
