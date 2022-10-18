@@ -1,50 +1,41 @@
 ﻿using NetTopologySuite.Geometries;
 using NetTopologySuite.IO.VectorTiles;
 using NetTopologySuite.IO.VectorTiles.Mapbox;
-using NetTopologySuite.IO.VectorTiles.Tiles;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.Intrinsics.Arm;
-using System.Runtime.Serialization.Formatters;
-using System.Text;
-using System.Threading.Tasks;
-using static NetTopologySuite.IO.VectorTiles.Mapbox.Tile;
+using System.IO.Compression;
 
 namespace Watermarking
 {
     public class Watermark
     {
-        private Envelope _envelopeTile;
+        public int M { get; set; }
+        public VectorTile Tile { get; set; }
 
-        public VectorTile _tile;
-
-        private int _m;
+        private readonly Envelope _envelopeTile;
 
         private double _a;
 
-        private int _extent;
+        private readonly int _extent;
 
-        private double _extentDist;
+        private readonly int _sizeMessage;
 
-        private int _countPoints;
+        private readonly double _extentDist;
 
-        private int _distance;
+        private readonly int _countPoints;
 
-        private int[,] _winx;
+        private readonly int _distance;
 
-        private int[,] _map;
-        //public Watermark(VectorTile tile, int x, int y, int z, int key, int extent = 4096)
-        //{
+        private readonly int[,] _winx;
 
-        //}
+        private readonly bool[,] _map;
 
         private int CountIncludes(Polygon polygon)
         {
             var includes = 0;
-            foreach (var layer in _tile.Layers)
+            foreach (var layer in Tile.Layers)
             {
                 foreach (var feature in layer.Features)
                 {
@@ -103,32 +94,32 @@ namespace Watermarking
                 if (IsLessThanHalfEmptySquare(a, m, countPoints))
                     break;
             }
-            _m = m;
+            M = m;
             _a = a;
         }
 
-        private int[,] GenerateWinx(int m, int sizeMessage, int key)
+        private int[,] GenerateWinx(int key)
         {
-            var r = (int)Math.Floor((double)m * m / sizeMessage);
+            var r = (int)Math.Floor((double)M * M / _sizeMessage);
             Console.WriteLine($"r = {r}");
-            Random random = new Random(key);
-            var winx = new int[m, m];
+            var random = new Random(key);
+            var winx = new int[M, M];
 
-            for (int i = 0; i < m; i++)
-                for (int j = 0; j < m; j++)
+            for (int i = 0; i < M; i++)
+                for (int j = 0; j < M; j++)
                     winx[i, j] = -1;
 
 
-            for (var i = 0; i < sizeMessage; i++)
+            for (var i = 0; i < _sizeMessage; i++)
             {
                 for (var j = 0; j < r; j++)
                 {
-                    var x = 0;
-                    var y = 0;
+                    int x;
+                    int y;
                     do
                     {
-                        x = random.Next() % m;
-                        y = random.Next() % m;
+                        x = random.Next() % M;
+                        y = random.Next() % M;
                     } while (winx[x, y] != -1);
 
                     winx[x, y] = i;
@@ -138,18 +129,18 @@ namespace Watermarking
             return winx;
         }
 
-        private int[,] GenerateMap(int key)
+        private bool[,] GenerateMap(int key)
         {
-            var map = new int[_extent, _extent];
-            Random random = new Random(key);
+            var map = new bool[_extent, _extent];
+            var random = new Random(key);
             for (var i = 0; i < _extent; i++)
                 for (var j = 0; j < _extent; j++)
-                    map[i, j] = random.Next() % 2;
+                    map[i, j] = Convert.ToBoolean(random.Next() % 2);
             map = ChangeMap(map);
             return map;
         }
 
-        private int[,] ChangeMap(int[,] map)
+        private bool[,] ChangeMap(bool[,] map)
         {
             var count = 0;
             for (var i = 0; i < _extent; i++)
@@ -157,18 +148,17 @@ namespace Watermarking
                     if (!CheckMapPoint(map, i, j))
                     {
                         ++count;
-                        if (map[i, j] == 0)
-                            map[i, j] = 1;
+                        if (Convert.ToInt32(map[i, j]) == 0)
+                            map[i, j] = Convert.ToBoolean(1);
                         else
-                            map[i, j] = 0;
+                            map[i, j] = Convert.ToBoolean(0);
                     }
-            Console.WriteLine($"count problem: {count}");
             return map;
         }
 
-        private bool CheckMapPoint(int[,] map, int x, int y)
+        private bool CheckMapPoint(bool[,] map, int x, int y)
         {
-            var value = map[x, y];
+            var value = Convert.ToInt32(map[x, y]);
 
             if (CheckNearestPoints(map, x, y, value))
                 return true;
@@ -189,25 +179,25 @@ namespace Watermarking
             return false;
         }
 
-        private bool CheckNearestPoints(int[,] map, int x, int y, int value)
+        private bool CheckNearestPoints(bool[,] map, int x, int y, int value)
         {
             if (x < 0 || x >= _extent || y < 0 || y >= _extent)
                 return false;
 
             if (x + 1 < _extent)
-                if (map[x + 1, y] != value)
+                if (Convert.ToInt32(map[x + 1, y]) != value)
                     return true;
 
             if (x - 1 >= 0)
-                if (map[x - 1, y] != value)
+                if (Convert.ToInt32(map[x - 1, y]) != value)
                     return true;
 
             if (y + 1 < _extent)
-                if (map[x, y + 1] != value)
+                if (Convert.ToInt32(map[x, y + 1]) != value)
                     return true;
 
             if (y - 1 >= 0)
-                if (map[x, y - 1] != value)
+                if (Convert.ToInt32(map[x, y - 1]) != value)
                     return true;
 
             return false;
@@ -219,7 +209,7 @@ namespace Watermarking
             yRes = -1;
 
             if (x + 1 < _extent)
-                if (_map[x + 1, y] != value)
+                if (Convert.ToInt32(_map[x + 1, y]) != value)
                 {
                     xRes = x + 1;
                     yRes = y;
@@ -227,7 +217,7 @@ namespace Watermarking
                 }
 
             if (x - 1 >= 0)
-                if (_map[x - 1, y] != value)
+                if (Convert.ToInt32(_map[x - 1, y]) != value)
                 {
                     xRes = x - 1;
                     yRes = y;
@@ -235,7 +225,7 @@ namespace Watermarking
                 }
 
             if (y + 1 < _extent)
-                if (_map[x, y + 1] != value)
+                if (Convert.ToInt32(_map[x, y + 1]) != value)
                 {
                     xRes = x;
                     yRes = y + 1;
@@ -243,7 +233,7 @@ namespace Watermarking
                 }
 
             if (y - 1 >= 0)
-                if (_map[x, y - 1] != value)
+                if (Convert.ToInt32(_map[x, y - 1]) != value)
                 {
                     xRes = x;
                     yRes = y - 1;
@@ -296,7 +286,7 @@ namespace Watermarking
             s0 = 0;
             s1 = 0;
 
-            foreach (var layer in _tile.Layers)
+            foreach (var layer in Tile.Layers)
                 foreach (var feature in layer.Features)
                 {
                     var geometry = feature.Geometry;
@@ -308,9 +298,7 @@ namespace Watermarking
                         {
                             var x = (int)Math.Floor((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
                             var y = (int)Math.Floor((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
-                            var mapValue = _map[x, y];
-
-                            //Console.WriteLine($"x: {x}, y: {y}, value: {mapValue}");
+                            var mapValue = Convert.ToInt32(_map[x, y]);
 
                             if (mapValue == 1)
                                 s1++;
@@ -331,7 +319,7 @@ namespace Watermarking
         {
             var step = (int)Math.Floor((double)s / count);
             var i = 0;
-            foreach (var layer in _tile.Layers)
+            foreach (var layer in Tile.Layers)
             {
                 foreach (var feature in layer.Features)
                 {
@@ -347,39 +335,24 @@ namespace Watermarking
 
                             var x = (int)Math.Floor((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
                             var y = (int)Math.Floor((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
-                            var mapValue = _map[x, y];
+                            var mapValue = Convert.ToInt32(_map[x, y]);
                             if (mapValue == value)
                                 continue;
 
                             if (i % step == 0)
                             {
-                                int xNew;
-                                int yNew;
-                                FindOppositeIndex(mapValue, x, y, out xNew, out yNew);
-
-                                //Console.WriteLine($"i: {i}, step: {step},  value: {value}, map value: {_map[x,y]} finding value: {_map[xNew, yNew]}, x: {x}, y: {y}, x new: {xNew}, y new: {yNew}");
-
+                                FindOppositeIndex(mapValue, x, y, out int xNew, out int yNew);
 
                                 double xMeteres = _envelopeTile.MinX + xNew * _extentDist + _extentDist / 2;
-
                                 double yMeteres = _envelopeTile.MinY + yNew * _extentDist + _extentDist / 2;
 
-                                //var metcoor = CoordinateConverter.DegreesToMeters(coordinates[j]);
-
-                                //Console.WriteLine($"coor: {metcoor}, x new: {xMeteres}, y new: {yMeteres}, dif x: {metcoor.X - xMeteres}, dif y: {metcoor.Y - yMeteres}, extentDist: {_extentDist}");
-
                                 var coor = CoordinateConverter.MetersToDegrees(new Coordinate(xMeteres, yMeteres));
-
-                                //Console.WriteLine($"x: {coordinateMeters.X}, y: {coordinateMeters.Y},  x new: {xMeteres}, y new: {yMeteres}");
-
-                                //Console.WriteLine($"xcoor: {coordinates[j].X}, ycoor: {coordinates[j].Y},  xcoor new: {coor.X}, ycoor new: {coor.Y}");
 
                                 if (x != xNew)
                                     geometry.Coordinates[j].X = coor.X;
                                 if (y != yNew)
                                     geometry.Coordinates[j].Y = coor.Y;
 
-                                //Console.WriteLine($"x in geometry: {coordinates[j].X}, y in geometry: {coordinates[j].Y}");
                             }
 
                             i++;
@@ -389,22 +362,96 @@ namespace Watermarking
             }
         }
 
-        public Watermark(string path, int x, int y, int z, int key, int sizeMessage, int distance = 2, int countPoints = 20, int extent = 4096)
+        public Watermark(string path, int x, int y, int z, int key, int sizeMessage, int distance = 2, int countPoints = 20, int extent = 4096, int m = 0)
         {
             _extent = extent;
             _countPoints = countPoints;
             _distance = distance;
+            _sizeMessage = sizeMessage;
 
             using var fileStream = new FileStream(path, FileMode.Open);
             var reader = new MapboxTileReader();
-            _tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            Tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
 
             var env = CoordinateConverter.TileBounds(x, y, z);
             _envelopeTile = CoordinateConverter.DegreesToMeters(env);
             _extentDist = _envelopeTile.Height / _extent;
-            PartitionTile(countPoints);
+            if (m == 0)
+                PartitionTile(countPoints);
+            else
+            {
+                M = m;
+                _a = _envelopeTile.Height / m;
+            }
 
-            _winx = GenerateWinx(_m, sizeMessage, key);
+            _winx = GenerateWinx(key);
+            _map = GenerateMap(key);
+
+        }
+
+        public Watermark(VectorTile tile, int x, int y, int z, int key, int sizeMessage, int distance = 2, int countPoints = 20, int extent = 4096, int m = 0)
+        {
+            _extent = extent;
+            _countPoints = countPoints;
+            _distance = distance;
+            _sizeMessage = sizeMessage;
+
+            Tile = tile;
+
+            var env = CoordinateConverter.TileBounds(x, y, z);
+            _envelopeTile = CoordinateConverter.DegreesToMeters(env);
+            _extentDist = _envelopeTile.Height / _extent;
+            if (m == 0)
+                PartitionTile(countPoints);
+            else
+            {
+                M = m;
+                _a = _envelopeTile.Height / m;
+            }
+
+            _winx = GenerateWinx(key);
+            _map = GenerateMap(key);
+
+        }
+
+        public Watermark(byte[] tile, int x, int y, int z, int key, int sizeMessage, int distance = 2, int countPoints = 20, int extent = 4096, int m = 0, bool compressed = false)
+        {
+            _extent = extent;
+            _countPoints = countPoints;
+            _distance = distance;
+            _sizeMessage = sizeMessage;
+
+            using var memoryStream = new MemoryStream(tile);
+            var reader = new MapboxTileReader();
+
+            memoryStream.Seek(0, SeekOrigin.Begin);
+
+            if (compressed)
+            {
+                using var decompressor = new GZipStream(memoryStream, CompressionMode.Decompress);
+
+                using var decompressedStream = new MemoryStream();
+                decompressor.CopyTo(decompressedStream);
+                Tile = reader.Read(decompressedStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            }
+            else
+            {
+                Tile = reader.Read(memoryStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            }
+
+
+            var env = CoordinateConverter.TileBounds(x, y, z);
+            _envelopeTile = CoordinateConverter.DegreesToMeters(env);
+            _extentDist = _envelopeTile.Height / _extent;
+            if (m == 0)
+                PartitionTile(countPoints);
+            else
+            {
+                M = m;
+                _a = _envelopeTile.Height / m;
+            }
+
+            _winx = GenerateWinx(key);
             _map = GenerateMap(key);
 
         }
@@ -412,8 +459,8 @@ namespace Watermarking
         public void Embed(byte[] bytes, double t2, double delta2)
         {
             var bites = new BitArray(bytes);
-            for (var i = 0; i < _m; i++)
-                for (var j = 0; j < _m; j++)
+            for (var i = 0; i < M; i++)
+                for (var j = 0; j < M; j++)
                 {
 
                     var index = _winx[i, j];
@@ -435,13 +482,11 @@ namespace Watermarking
                     );
 
 
-                    int s0;
-                    int s1;
 
-                    var stat = Statistics(polygon, out s0, out s1);
+                    var stat = Statistics(polygon, out int s0, out int s1);
                     if (stat == -1)
                     {
-                        Console.WriteLine($"i: {i}, j:{j}, s0: {s0}, s1: {s1}, not embeded");
+                        Console.WriteLine($"i: {i}, j:{j}, s0: {s0}, s1: {s1}, index: {index}, not embeded");
                         continue;
                     }
 
@@ -474,47 +519,127 @@ namespace Watermarking
                         Console.WriteLine($"needed to 0: {countAdded}");
                         ChangeCoordinate(0, countAdded, s1, polygon);
                     }
-
-
-
-                    //stat = Statistics(polygon, out s0, out s1);
-                    //Console.WriteLine($"i: {i}, j:{j}, s0: {s0}, s1: {s1}, stat: {stat}, value: {value}, index: {index}");
-                    //if (stat >= t2 + delta2)
-                    //{
-                    //    if (s1 - s0 > 0 && value == 1)
-                    //    {
-                    //        Console.WriteLine($"ALL RIGHT");
-                    //        continue;
-                    //    }
-                    //    if (s0 - s1 > 0 && value == 0)
-                    //    {
-                    //        Console.WriteLine($"ALL RIGHT");
-                    //        continue;
-                    //    }
-                    //    Console.WriteLine($"NOT ALL RIGHT");
-                    //}
-
-                    //Console.WriteLine($"i: {i}, j:{j}, stat: {stat}");
-
-                    //foreach (var layer in _tile.Layers)
-                    //    foreach (var feature in layer.Features)
-                    //    {
-                    //        var geometry = feature.Geometry;
-                    //        if (polygon.Intersects(geometry))
-                    //        {
-                    //            var coordinates = geometry.Coordinates;
-                    //            foreach (var coordinate in coordinates)
-                    //            {
-                    //                if (polygon.Contains(new Point(coordinate)))
-                    //                {
-
-
-
-                    //                }
-                    //            }
-                    //        }
-                    //    }
                 }
+        }
+
+        public byte[] GetWatermark(double t2)
+        {
+            var bits = new BitArray(_sizeMessage, false);
+            var bytes = new byte[_sizeMessage / 8];
+            var dict = new Dictionary<int, int>(_sizeMessage);
+
+            for (var i = 0; i < _sizeMessage; i++)
+                dict.Add(i, 0);
+
+            for (var i = 0; i < M; i++)
+                for (var j = 0; j < M; j++)
+                {
+
+                    var index = _winx[i, j];
+                    if (index == -1)
+                        continue;
+
+                    var polygon = new Polygon(
+                        new LinearRing(
+                            new Coordinate[]
+                            {
+                                    new(_envelopeTile.MinX + _a * i, _envelopeTile.MinY + _a * j),
+                                    new(_envelopeTile.MinX + _a * i, _envelopeTile.MinY + _a * (j + 1)),
+                                    new(_envelopeTile.MinX + _a * (i + 1), _envelopeTile.MinY + _a * (j + 1)),
+                                    new(_envelopeTile.MinX + _a * (i + 1), _envelopeTile.MinY + _a * j),
+                                    new(_envelopeTile.MinX + _a * i, _envelopeTile.MinY + _a * j)
+                            }
+                    )
+                    );
+
+
+
+                    var stat = Statistics(polygon, out int s0, out int s1);
+                    if (stat == -1)
+                    {
+                        Console.WriteLine($"i: {i}, j:{j}, s0: {s0}, s1: {s1}, index:{index}, not embeded");
+                        continue;
+                    }
+
+                    Console.WriteLine($"i: {i}, j:{j}, s0: {s0}, s1: {s1}, stat: {stat}, index: {index}");
+                    if (stat >= t2)
+                    {
+                        if (s0 > s1)
+                        {
+                            Console.WriteLine($"index: {index}, value: {0}");
+                            dict[index] -= 1;
+                        }
+
+                        if (s1 > s0)
+                        {
+                            dict[index] += 1;
+                            Console.WriteLine($"index: {index}, value: {1}");
+                        }
+                    }
+                }
+
+            for (var i = 0; i < _sizeMessage; i++)
+            {
+                if (dict[i] > 0)
+                    bits[i] = true;
+                if (dict[i] < 0)
+                    bits[i] = false;
+            }
+
+            for (var j = 0; j < _sizeMessage / 8; ++j)
+            {
+                int tmp = 0;
+                for (var i = 0; i < 8; i++)
+                    tmp += Convert.ToInt32(bits[i + j * 8]) << i;
+                bytes[j] = (byte)tmp;
+            }
+
+            return bytes;
+        }
+
+        public int CountOutside()
+        {
+            var polygon = new Polygon(
+                        new LinearRing(
+                            new Coordinate[]
+                            {
+                                    new(_envelopeTile.MinX, _envelopeTile.MinY),
+                                    new(_envelopeTile.MinX, _envelopeTile.MaxY),
+                                    new(_envelopeTile.MaxX, _envelopeTile.MaxY),
+                                    new(_envelopeTile.MaxX, _envelopeTile.MinY),
+                                    new(_envelopeTile.MinX, _envelopeTile.MinY)
+                            }));
+            Console.WriteLine($"polygon: {polygon.Coordinates[0]}, {polygon.Coordinates[1]}, {polygon.Coordinates[2]}, {polygon.Coordinates[3]}");
+            var countOutside = 0;
+
+            var geometry = CoordinateConverter.DegreesToMeters(Tile.Layers[0].Features[0].Geometry.Copy()).Envelope;
+
+            for (var i = 0; i < Tile.Layers.Count; i++)
+                for (var j = 1; j < Tile.Layers[i].Features.Count; j++)
+                {
+                    if (Tile.Layers[i].Features[j].Geometry.IsValid)
+                    {
+                        var g = CoordinateConverter.DegreesToMeters(Tile.Layers[i].Features[j].Geometry.Copy()).Envelope;
+                        geometry = g.Union(geometry);
+                    }
+                }
+
+            var bbox = geometry.Envelope;
+            Console.WriteLine(bbox);
+
+            foreach (var layer in Tile.Layers)
+                foreach (var feature in layer.Features)
+                    foreach (var point in feature.Geometry.Coordinates)
+                    {
+                        var pointMeters = CoordinateConverter.DegreesToMeters(point);
+                        if (!polygon.Contains(new Point(pointMeters)))
+                        {
+                            countOutside++;
+                            //Console.WriteLine($"x y: {pointMeters.X} {pointMeters.Y}");
+                            //Console.WriteLine($"{feature.Attributes.Count}");
+                        }
+                    }
+            return countOutside;
         }
     }
 }
