@@ -1,323 +1,132 @@
-﻿using System;
-using System.IO;
+﻿using Microsoft.Data.Sqlite;
 using NetTopologySuite.IO.VectorTiles.Mapbox;
-using NetTopologySuite.IO.VectorTiles;
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO.VectorTiles.Tiles;
-using System.Collections.Generic;
-using System.Collections;
+using System;
+using System.IO;
 
 namespace Watermarking
 {
     internal class Program
     {
-
-        //static int CountIncludes(VectorTile tile, Polygon polygon)
-        //{
-        //    var includes = 0;
-        //    foreach (var layer in tile.Layers)
-        //    {
-        //        foreach (var feature in layer.Features)
-        //        {
-        //            foreach (var point in feature.Geometry.Coordinates)
-        //            {
-        //                var pointMeters = CoordinateConverter.DegreesToMeters(point);
-        //                if (polygon.Intersects(new Point(pointMeters)))
-        //                    includes++;
-        //            }
-        //        }
-        //    }
-        //    return includes;
-        //}
-
-
-
-        //static bool IsLessThanHalfEmptySquare(VectorTile tile, Envelope envelope, double m, int i, int countPoint)
-        //{
-        //    var countSquare = 0;
-        //    var countEmptySqure = 0;
-        //    for (var j = 0; j < i; j++)
-        //    {
-        //        for (var k = 0; k < i; k++)
-        //        {
-        //            var p = new Polygon(
-        //                new LinearRing(
-        //                    new Coordinate[]
-        //                    {
-        //                            new(envelope.MinX + m * j, envelope.MinY + m * k),
-        //                            new(envelope.MinX + m * j, envelope.MinY + m * (k + 1)),
-        //                            new(envelope.MinX + m * (j + 1), envelope.MinY + m * (k + 1)),
-        //                            new(envelope.MinX + m * (j + 1), envelope.MinY + m * k),
-        //                            new(envelope.MinX + m * j, envelope.MinY + m * k)
-        //                    }
-        //            )
-        //            );
-
-        //            if (CountIncludes(tile, p) < countPoint)
-        //                countEmptySqure++;
-        //            countSquare++;
-        //        }
-        //    }
-        //    Console.WriteLine($"count square: {countSquare}, count empty square: {countEmptySqure}, {(double)countEmptySqure / countSquare}");
-        //    if ((double)countEmptySqure / countSquare < 0.5)
-        //        return true;
-        //    return false;
-
-        //}
-
-        //static int[,] GenerateWinx(int m, int n, int key)
-        //{
-        //    var r = (int)Math.Floor((double)m * m / n);
-        //    Console.WriteLine($"r = {r}");
-        //    Random random = new Random(key);
-        //    var winx = new int[m, m];
-
-        //    for (int i = 0; i < m; i++)
-        //        for (int j = 0; j < m; j++)
-        //            winx[i, j] = -1;
-
-
-        //    for (var i = 0; i < n; i++)
-        //    {
-        //        for (var j = 0; j < r; j++)
-        //        {
-        //            var x = 0;
-        //            var y = 0;
-        //            do
-        //            {
-        //                x = random.Next() % m;
-        //                y = random.Next() % m;
-        //            } while (winx[x, y] != -1);
-
-        //            winx[x, y] = i;
-        //        }
-        //    }
-
-        //    return winx;
-        //}
-
-        //struct MatrixPoint
-        //{
-        //    public int X;
-        //    public int Y;
-        //}
-
-        //static bool CheckNearestPoints(int[,] map, int x, int y, int value, int extent)
-        //{
-        //    if (x < 0 || x >= extent || y < 0 || y >= extent)
-        //        return false;
-
-        //    if (x + 1 < extent)
-        //        if (map[x + 1, y] != value)
-        //            return true;
-
-        //    if (x - 1 >= 0)
-        //        if (map[x - 1, y] != value)
-        //            return true;
-
-        //    if (y + 1 < extent)
-        //        if (map[x, y + 1] != value)
-        //            return true;
-
-        //    if (y - 1 >= 0)
-        //        if (map[x, y - 1] != value)
-        //            return true;
-
-        //    return false;
-        //}
-
-
-        //static bool CheckMapPoint(int[,] map, int dist, int x, int y, int extent)
-        //{
-        //    var value = map[x, y];
-
-        //    if (CheckNearestPoints(map, x, y, value, extent))
-        //        return true;
-
-        //    //var points = new Queue<MatrixPoint>();
-
-        //    //points.Enqueue(new MatrixPoint { X = x + 1, Y = y });
-        //    //points.Enqueue(new MatrixPoint { X = x - 1, Y = y });
-        //    //points.Enqueue(new MatrixPoint { X = x, Y = y + 1 });
-        //    //points.Enqueue(new MatrixPoint { X = x, Y = y - 1 });
-
-        //    //for (var i = 1; i < dist; ++i)
-        //    //{
-        //    //    var count = points.Count;
-        //    //    for (var j = 0; j < count; ++j)
-        //    //    {
-        //    //        var point = points.Dequeue();
-        //    //        if (CheckNearestPoints(map, point.X, point.Y, value, extent))
-        //    //            return true;
-
-        //    //        points.Enqueue(new MatrixPoint { X = point.X + 1, Y = point.Y });
-        //    //        points.Enqueue(new MatrixPoint { X = point.X - 1, Y = point.Y });
-        //    //        points.Enqueue(new MatrixPoint { X = point.X, Y = point.Y + 1 });
-        //    //        points.Enqueue(new MatrixPoint { X = point.X, Y = point.Y - 1 });
-        //    //    }
-        //    //}
-
-        //    for (var i = 1; i < dist; ++i)
-        //    {
-
-        //        if (CheckNearestPoints(map, x + i, y, value, extent))
-        //            return true;
-        //        if (CheckNearestPoints(map, x - i, y, value, extent))
-        //            return true;
-        //        if (CheckNearestPoints(map, x, y + i, value, extent))
-        //            return true;
-        //        if (CheckNearestPoints(map, x, y - i, value, extent))
-        //            return true;
-
-        //    }
-        //    return false;
-
-        //}
-
-        //static int[,] ChangeMap(int[,] map, int dist, int extent)
-        //{
-        //    var count = 0;
-        //    for (var i = 0; i < extent; i++)
-        //        for (var j = 0; j < extent; j++)
-        //            if (!CheckMapPoint(map, dist, i, j, extent))
-        //            {
-        //                //Console.WriteLine($"{i}, {j}, {map[i, j]}");
-        //                ++count;
-        //                if (map[i, j] == 0)
-        //                    map[i, j] = 1;
-        //                else
-        //                    map[i, j] = 0;
-        //            }
-        //    Console.WriteLine($"count problem: {count}");
-
-        //    count = 0;
-        //    for (var i = 0; i < extent; i++)
-        //        for (var j = 0; j < extent; j++)
-        //            if (!CheckMapPoint(map, dist, i, j, extent))
-        //            {
-        //                //Console.WriteLine($"{i}, {j}, {map[i, j]}");
-        //                ++count;
-        //            }
-        //    Console.WriteLine($"count problem: {count}");
-        //    return map;
-        //}
-
-        //static int[,] GenerateMap(int key, int dist, int extent = 4096)
-        //{
-        //    var map = new int[extent, extent];
-        //    Random random = new Random(key);
-        //    for (var i = 0; i < extent; i++)
-        //        for (var j = 0; j < extent; j++)
-        //            map[i, j] = random.Next() % 2;
-        //    map = ChangeMap(map, dist, extent);
-        //    return map;
-        //}
-
         static void Main(string[] args)
         {
-            var path = "C:\\Users\\user\\source\\Watermarking\\828.mvt";
+            //var path = "C:\\Users\\user\\source\\Watermarking\\828.mvt";
 
+            //var path = "C:\\Users\\user\\source\\Watermarking\\stp.mbtiles";
+            var path = "C:\\Users\\user\\source\\Watermarking\\isogd5.mvt";
+            var path2 = "C:\\Users\\user\\source\\Watermarking\\mvttmp(5).pbf";
 
-            var z = 11;
-            var x = 359;
-            var y = 828;
+            //var z = 11;
+            //var x = 359;
+            //var y = 828;
 
-            //using var fileStream = new FileStream(path, FileMode.Open);
-            //var reader = new MapboxTileReader();
-            //var tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            //var z = 7;
+            //var x = 80;
+            //var y = 40;
 
+            //iosgd
+            //var z = 9;
+            //var x = 166;
+            //var y = 325;
 
-            var watermark = new Watermark(path, x, y, z, 0, 8);
+            //iosgd2
+            //var z = 10;
+            //var x = 657;
+            //var y = 334;
 
-            using var fileStream3 = new FileStream(path, FileMode.Open);
-            var reader = new MapboxTileReader();
-            var tile = reader.Read(fileStream3, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            //iosgd3
+            //var z = 10;
+            //var x = 652;
+            //var y = 333;
 
-            var path2 = "C:\\Users\\user\\source\\Watermarking\\test.mvt";
+            //iosgd4
+            //var z = 10;
+            //var x = 656;
+            //var y = 334;
 
-            using var fileStream = new FileStream(path2, FileMode.Create);
-            MapboxTileWriter.Write(tile, fileStream);
+            //iosgd5
+            var z = 10;
+            var x = 653;
+            var y = 333;
 
-            var bytes = new byte[] { 0x10 };
+            //iosgd6
+            //var z = 12;
+            //var x = 2619;
+            //var y = 1333;
 
-            var t2 = 0.5;
-            var delta2 = 0.1;
+            //using var sqliteConnection = new SqliteConnection($"Data Source = {path}");
+            //sqliteConnection.Open();
 
-            watermark.Embed(bytes, t2, delta2);
+            //using var command = new SqliteCommand(@"SELECT tile_data FROM tiles WHERE zoom_level = $z AND tile_column = $x AND tile_row = $y", sqliteConnection);
+            //command.Parameters.AddWithValue("$z", z);
+            //command.Parameters.AddWithValue("$x", x);
+            //command.Parameters.AddWithValue("$y", (1 << z) - y - 1);
+            //var tile = (byte[])command.ExecuteScalar();
 
-            Console.WriteLine("\nsecond embed\n");
+            int extent = 4096;
 
-            watermark.Embed(bytes, t2, delta2);
+            int size = 8;
 
+            int key = 0;
 
-            //using var fileStream = new FileStream(path2, FileMode.Create);
+            int countpoints = 15;
 
-            var tileWithWatermark = watermark._tile;
-            //tile.Write(fileStream);
+            var watermark = new Watermark(path, x, y, z, key, size, countPoints: countpoints, extent: extent);
 
-            //using var fileStream2 = new FileStream(path2, FileMode.Open);
-            //var reader2 = new MapboxTileReader();
-            //var tileOpen = reader2.Read(fileStream2, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
-
-            var countChanges = 0;
             var count = 0;
-            for (var i = 0; i < tile.Layers.Count; ++i)
-                for (var j = 0; j < tile.Layers[i].Features.Count; ++j)
-                {
-                    //for (var k = 0; k < tile.Layers[i].Features[j].Geometry.Coordinates.Length; k++)
-                    //{
-                    //    if (!tile.Layers[i].Features[j].Geometry.Coordinates[k].Equals(tileWithWatermark.Layers[i].Features[j].Geometry.Coordinates[k]))
-                    //        Console.WriteLine("HERE\n");
-                    //}
-                    //Console.WriteLine($"tile original : {tile.Layers[i].Features[j].Geometry}");
-                    //Console.WriteLine($"tile watermark: {tileWithWatermark.Layers[i].Features[j].Geometry}");
-                    if (tile.Layers[i].Features[j].Geometry != tileWithWatermark.Layers[i].Features[j].Geometry)
-                    {
-                        ++countChanges;
-                        //Console.WriteLine("HERE\n");
-                    }
-                    ++count;
-                }
+            foreach (var layer in watermark.Tile.Layers)
+                foreach (var feature in layer.Features)
+                    foreach (var point in feature.Geometry.Coordinates)
+                        count++;
 
-            Console.WriteLine($"count: {count}, count changes: {countChanges}");
+            Console.WriteLine(count);
+            Console.WriteLine(watermark.CountOutside());
 
-            Console.WriteLine(tile.Equals(tileWithWatermark));
-            //var reader = new MapboxTileReader();
-            //var tile = reader.Read(fileStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+            var bytes = new byte[] { 0x33 };
 
-            //var env = CoordinateConverter.TileBounds(x, y, z);
-            //Console.WriteLine(env);
-            //Console.WriteLine(env.Height);
-            //Console.WriteLine(env.Width);
+            var t2 = 0.4;
+            var delta2 = 0.35;
 
-            //var envMeters = CoordinateConverter.DegreesToMeters(env);
+            watermark.Embed(bytes, t2, delta2);
 
-            //Console.WriteLine(envMeters);
-            //Console.WriteLine(envMeters.Height);
-            //Console.WriteLine(envMeters.Width);
+            var tileWatermarked = watermark.Tile;
 
+            //tileWatermarked.Layers.RemoveAt(2);
+            //tileWatermarked.Layers.RemoveAt(1);
+            //tileWatermarked.Layers.RemoveAt(0);
 
+            var w = new Watermark(tileWatermarked, x, y, z, key, size, countPoints: countpoints, extent: extent, m: watermark.M);
 
+            count = 0;
+            foreach (var layer in w.Tile.Layers)
+                foreach (var feature in layer.Features)
+                    foreach (var point in feature.Geometry.Coordinates)
+                        count++;
 
+            Console.WriteLine(count);
+            Console.WriteLine(watermark.CountOutside());
 
-            //Console.WriteLine(CoordinateConverter.MapSize(z));
-            //var coor_min = CoordinateConverter.PositionToGlobalPixel(new double[] { env.MinX, env.MinY }, z);
-            //var coor_max = CoordinateConverter.PositionToGlobalPixel(new double[] { env.MaxX, env.MaxY }, z);
-            //Console.WriteLine($"{coor_min[0]}, {coor_min[1]}");
-            //Console.WriteLine($"{coor_max[0]}, {coor_max[1]}");
-            //Console.WriteLine($"{coor_max[0] - coor_min[0]}, {coor_max[1] - coor_min[1]}");
-            //Console.WriteLine(tile.TileId);
+            var resBytes = w.CheckWatermark(t2);
 
-            //foreach (var layer in tile.Layers)
-            //{
-            //    Console.WriteLine(layer.Name);
-            //    foreach (var feature in layer.Features)
-            //    {
-            //        Console.WriteLine($"Geometry type:{feature.Geometry.GeometryType}");
-            //        foreach (var point in feature.Geometry.Coordinates)
-            //            Console.WriteLine($"({point.X}, {point.Y})\n");
-            //    }
-            //}
+            for (var i = 0; i < size / 8; i++)
+                Console.WriteLine($"{resBytes[i]:x}");
+
+            using (var fileStream = new FileStream(path2, FileMode.Create))
+                tileWatermarked.Write(fileStream, extent: (uint)extent);
+
+            var ww = new Watermark(path2, x, y, z, key, size, countPoints: countpoints, extent: extent, m: watermark.M);
+
+            count = 0;
+            foreach (var layer in ww.Tile.Layers)
+                foreach (var feature in layer.Features)
+                    foreach (var point in feature.Geometry.Coordinates)
+                        count++;
+
+            Console.WriteLine(count);
+            Console.WriteLine(watermark.CountOutside());
+
+            var res = ww.CheckWatermark(t2);
+            for (var i = 0; i < size / 8; i++)
+                Console.WriteLine($"{res[i]:x}");
         }
     }
 }
