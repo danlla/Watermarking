@@ -203,7 +203,7 @@ namespace Watermarking
             return false;
         }
 
-        private void CheckNearestPoints(int x, int y, int value, out int xRes, out int yRes)
+        private void GetOppositePoint(int x, int y, int value, out int xRes, out int yRes)
         {
             xRes = -1;
             yRes = -1;
@@ -248,7 +248,7 @@ namespace Watermarking
 
             if (CheckNearestPoints(_map, x, y, value))
             {
-                CheckNearestPoints(x, y, value, out xRes, out yRes);
+                GetOppositePoint(x, y, value, out xRes, out yRes);
             }
 
             for (var i = 1; i < _distance; ++i)
@@ -256,25 +256,25 @@ namespace Watermarking
 
                 if (CheckNearestPoints(_map, x + i, y, value))
                 {
-                    CheckNearestPoints(x + i, y, value, out xRes, out yRes);
+                    GetOppositePoint(x + i, y, value, out xRes, out yRes);
                     return;
                 }
 
                 if (CheckNearestPoints(_map, x - i, y, value))
                 {
-                    CheckNearestPoints(x - i, y, value, out xRes, out yRes);
+                    GetOppositePoint(x - i, y, value, out xRes, out yRes);
                     return;
                 }
 
                 if (CheckNearestPoints(_map, x, y + i, value))
                 {
-                    CheckNearestPoints(x, y + 1, value, out xRes, out yRes);
+                    GetOppositePoint(x, y + 1, value, out xRes, out yRes);
                     return;
                 }
 
                 if (CheckNearestPoints(_map, x, y - i, value))
                 {
-                    CheckNearestPoints(x, y - 1, value, out xRes, out yRes);
+                    GetOppositePoint(x, y - 1, value, out xRes, out yRes);
                     return;
                 };
 
