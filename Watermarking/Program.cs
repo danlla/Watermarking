@@ -12,8 +12,8 @@ namespace Watermarking
             //var path = "C:\\Users\\user\\source\\Watermarking\\828.mvt";
 
             //var path = "C:\\Users\\user\\source\\Watermarking\\stp.mbtiles";
-            var path = "C:\\Users\\user\\source\\Watermarking\\isogd5.mvt";
-            var path2 = "C:\\Users\\user\\source\\Watermarking\\mvttmp(5).pbf";
+            var path = "C:\\Users\\user\\source\\Watermarking\\polygons.mvt";
+            var path2 = "C:\\Users\\user\\source\\Watermarking\\polygons_watermarked.mvt";
 
             //var z = 11;
             //var x = 359;
@@ -44,14 +44,18 @@ namespace Watermarking
             //var y = 334;
 
             //iosgd5
-            var z = 10;
-            var x = 653;
-            var y = 333;
+            //var z = 10;
+            //var x = 653;
+            //var y = 333;
 
             //iosgd6
             //var z = 12;
             //var x = 2619;
             //var y = 1333;
+
+            var z = 3;
+            var x = 3;
+            var y = 4;
 
             //using var sqliteConnection = new SqliteConnection($"Data Source = {path}");
             //sqliteConnection.Open();
@@ -68,7 +72,7 @@ namespace Watermarking
 
             int key = 0;
 
-            int countpoints = 15;
+            int countpoints = 1;
 
             var watermark = new Watermark(path, x, y, z, key, size, countPoints: countpoints, extent: extent);
 

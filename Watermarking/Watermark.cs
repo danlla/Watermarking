@@ -318,7 +318,7 @@ namespace Watermarking
         private void ChangeCoordinate(int value, int count, int s, Polygon polygon)
         {
             var step = (int)Math.Floor((double)s / count);
-            var i = 0;
+            var count_changed = 0;
             foreach (var layer in Tile.Layers)
             {
                 foreach (var feature in layer.Features)
@@ -330,7 +330,7 @@ namespace Watermarking
                         var coordinateMeters = CoordinateConverter.DegreesToMeters(coordinates[j]);
                         if (polygon.Contains(new Point(coordinateMeters)))
                         {
-                            if (i / step == count)
+                            if (count_changed / step >= count)//вынести выше, чтобы сразу выходило если мы все встроили
                                 return;
 
                             var x = (int)Math.Floor((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
@@ -339,7 +339,7 @@ namespace Watermarking
                             if (mapValue == value)
                                 continue;
 
-                            if (i % step == 0)
+                            if (count_changed % step == 0)
                             {
                                 FindOppositeIndex(mapValue, x, y, out int xNew, out int yNew);
 
@@ -353,9 +353,20 @@ namespace Watermarking
                                 if (y != yNew)
                                     geometry.Coordinates[j].Y = coor.Y;
 
+                                for (var k = 0; k < coordinates.Length; k++)//k=j+1
+                                {
+                                    var coordinate = CoordinateConverter.DegreesToMeters(coordinates[k]);
+                                    if (coordinate.X == coordinateMeters.X && coordinate.Y == coordinateMeters.Y)
+                                    {
+                                        geometry.Coordinates[k].X = coor.X;
+                                        geometry.Coordinates[k].Y = coor.Y;
+                                        count_changed++;
+                                    }
+
+                                }
                             }
 
-                            i++;
+                            count_changed++;
                         }
                     }
                 }
@@ -428,11 +439,8 @@ namespace Watermarking
 
             if (compressed)
             {
-                using var decompressor = new GZipStream(memoryStream, CompressionMode.Decompress);
-
-                using var decompressedStream = new MemoryStream();
-                decompressor.CopyTo(decompressedStream);
-                Tile = reader.Read(decompressedStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
+                using var decompressor = new GZipStream(memoryStream, CompressionMode.Decompress, false);
+                Tile = reader.Read(decompressor, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
             }
             else
             {
@@ -612,20 +620,20 @@ namespace Watermarking
             Console.WriteLine($"polygon: {polygon.Coordinates[0]}, {polygon.Coordinates[1]}, {polygon.Coordinates[2]}, {polygon.Coordinates[3]}");
             var countOutside = 0;
 
-            var geometry = CoordinateConverter.DegreesToMeters(Tile.Layers[0].Features[0].Geometry.Copy()).Envelope;
+            //var geometry = CoordinateConverter.DegreesToMeters(Tile.Layers[0].Features[0].Geometry.Copy()).Envelope;
 
-            for (var i = 0; i < Tile.Layers.Count; i++)
-                for (var j = 1; j < Tile.Layers[i].Features.Count; j++)
-                {
-                    if (Tile.Layers[i].Features[j].Geometry.IsValid)
-                    {
-                        var g = CoordinateConverter.DegreesToMeters(Tile.Layers[i].Features[j].Geometry.Copy()).Envelope;
-                        geometry = g.Union(geometry);
-                    }
-                }
+            //for (var i = 0; i < Tile.Layers.Count; i++)
+            //    for (var j = 1; j < Tile.Layers[i].Features.Count; j++)
+            //    {
+            //        if (Tile.Layers[i].Features[j].Geometry.IsValid)
+            //        {
+            //            var g = CoordinateConverter.DegreesToMeters(Tile.Layers[i].Features[j].Geometry.Copy()).Envelope;
+            //            geometry = g.Union(geometry);
+            //        }
+            //    }
 
-            var bbox = geometry.Envelope;
-            Console.WriteLine(bbox);
+            //var bbox = geometry.Envelope;
+            //Console.WriteLine(bbox);
 
             foreach (var layer in Tile.Layers)
                 foreach (var feature in layer.Features)
