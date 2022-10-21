@@ -296,10 +296,15 @@ namespace Watermarking
                         var coordinateMeters = CoordinateConverter.DegreesToMeters(coordinate);
                         if (polygon.Contains(new Point(coordinateMeters)))
                         {
-                            var x = (int)Math.Floor((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
-                            var y = (int)Math.Floor((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
+                            var x = (int)Convert.ToInt32((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
+                            var y = (int)Convert.ToInt32((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
+                            if (x == _extent || y == _extent)
+                                continue;
                             var mapValue = Convert.ToInt32(_map[x, y]);
 
+                            //Console.WriteLine($"x: {x}, y: {y}, value:{mapValue}, x m: {coordinateMeters.X}, y m: {coordinateMeters.Y}, x m: {coordinate.X}, y m: {coordinate.Y}");
+                            //if (mapValue == 0)
+                            // Console.WriteLine($"{(coordinateMeters.X - _envelopeTile.MinX) / _extentDist}, {(coordinateMeters.Y - _envelopeTile.MinY) / _extentDist}");
                             if (mapValue == 1)
                                 s1++;
                             else
@@ -327,14 +332,18 @@ namespace Watermarking
                     var coordinates = geometry.Coordinates;
                     for (var j = 0; j < coordinates.Length; j++)
                     {
+                        if (count_changed / step >= count)
+                            return;
+
                         var coordinateMeters = CoordinateConverter.DegreesToMeters(coordinates[j]);
                         if (polygon.Contains(new Point(coordinateMeters)))
                         {
-                            if (count_changed / step >= count)//вынести выше, чтобы сразу выходило если мы все встроили
-                                return;
+                            var x = Convert.ToInt32((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
+                            var y = Convert.ToInt32((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
 
-                            var x = (int)Math.Floor((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
-                            var y = (int)Math.Floor((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
+                            if (x == _extent || y == _extent)
+                                continue;
+
                             var mapValue = Convert.ToInt32(_map[x, y]);
                             if (mapValue == value)
                                 continue;
@@ -343,8 +352,8 @@ namespace Watermarking
                             {
                                 FindOppositeIndex(mapValue, x, y, out int xNew, out int yNew);
 
-                                double xMeteres = _envelopeTile.MinX + xNew * _extentDist + _extentDist / 2;
-                                double yMeteres = _envelopeTile.MinY + yNew * _extentDist + _extentDist / 2;
+                                double xMeteres = _envelopeTile.MinX + xNew * _extentDist;
+                                double yMeteres = _envelopeTile.MinY + yNew * _extentDist;
 
                                 var coor = CoordinateConverter.MetersToDegrees(new Coordinate(xMeteres, yMeteres));
 
@@ -353,7 +362,9 @@ namespace Watermarking
                                 if (y != yNew)
                                     geometry.Coordinates[j].Y = coor.Y;
 
-                                for (var k = 0; k < coordinates.Length; k++)//k=j+1
+                                //Console.WriteLine($"{feature.Attributes.GetValues()[0]} j: {j}, x: {x}, y: {y}, x new:{xNew}, y new: {yNew}, x m: {xMeteres}, y m: {yMeteres}, x d: {coor.X}, y d: {coor.Y}, value: {value}");
+
+                                for (var k = j + 1; k < coordinates.Length; k++)
                                 {
                                     var coordinate = CoordinateConverter.DegreesToMeters(coordinates[k]);
                                     if (coordinate.X == coordinateMeters.X && coordinate.Y == coordinateMeters.Y)
@@ -447,7 +458,6 @@ namespace Watermarking
                 Tile = reader.Read(memoryStream, new NetTopologySuite.IO.VectorTiles.Tiles.Tile(x, y, z));
             }
 
-
             var env = CoordinateConverter.TileBounds(x, y, z);
             _envelopeTile = CoordinateConverter.DegreesToMeters(env);
             _extentDist = _envelopeTile.Height / _extent;
@@ -464,9 +474,9 @@ namespace Watermarking
 
         }
 
-        public void Embed(byte[] bytes, double t2, double delta2)
+        public void Embed(BitArray bites, double t2, double delta2)
         {
-            var bites = new BitArray(bytes);
+            //var bites = new BitArray(bytes);
             for (var i = 0; i < M; i++)
                 for (var j = 0; j < M; j++)
                 {
@@ -530,10 +540,9 @@ namespace Watermarking
                 }
         }
 
-        public byte[] GetWatermark(double t2)
+        public BitArray GetWatermark(double t2)
         {
             var bits = new BitArray(_sizeMessage, false);
-            var bytes = new byte[_sizeMessage / 8];
             var dict = new Dictionary<int, int>(_sizeMessage);
 
             for (var i = 0; i < _sizeMessage; i++)
@@ -594,15 +603,7 @@ namespace Watermarking
                     bits[i] = false;
             }
 
-            for (var j = 0; j < _sizeMessage / 8; ++j)
-            {
-                int tmp = 0;
-                for (var i = 0; i < 8; i++)
-                    tmp += Convert.ToInt32(bits[i + j * 8]) << i;
-                bytes[j] = (byte)tmp;
-            }
-
-            return bytes;
+            return bits;
         }
 
         public int CountOutside()
