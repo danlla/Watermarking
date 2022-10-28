@@ -241,6 +241,7 @@ namespace Watermarking
                 }
         }
 
+        //return list of point
         private void FindOppositeIndex(int value, int x, int y, out int xRes, out int yRes)
         {
             xRes = -1;
@@ -320,6 +321,7 @@ namespace Watermarking
             return (double)Math.Abs(s0 - s1) / (s1 + s0);
         }
 
+        //check for valid feature, if not valid chose another point
         private void ChangeCoordinate(int value, int count, int s, Polygon polygon)
         {
             var step = (int)Math.Floor((double)s / count);
