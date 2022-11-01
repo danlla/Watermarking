@@ -203,17 +203,19 @@ namespace Watermarking
             return false;
         }
 
-        private void GetOppositePoint(int x, int y, int value, out int xRes, out int yRes)
+        private List<MyPoint> GetOppositePoint(int x, int y, int value)
         {
-            xRes = -1;
-            yRes = -1;
+            int xRes;
+            int yRes;
+
+            var listPoints = new List<MyPoint>();
 
             if (x + 1 < _extent)
                 if (Convert.ToInt32(_map[x + 1, y]) != value)
                 {
                     xRes = x + 1;
                     yRes = y;
-                    return;
+                    listPoints.Add(new MyPoint(xRes, yRes));
                 }
 
             if (x - 1 >= 0)
@@ -221,7 +223,7 @@ namespace Watermarking
                 {
                     xRes = x - 1;
                     yRes = y;
-                    return;
+                    listPoints.Add(new MyPoint(xRes, yRes));
                 }
 
             if (y + 1 < _extent)
@@ -229,7 +231,7 @@ namespace Watermarking
                 {
                     xRes = x;
                     yRes = y + 1;
-                    return;
+                    listPoints.Add(new MyPoint(xRes, yRes));
                 }
 
             if (y - 1 >= 0)
@@ -237,19 +239,26 @@ namespace Watermarking
                 {
                     xRes = x;
                     yRes = y - 1;
-                    return;
+                    listPoints.Add(new MyPoint(xRes, yRes));
                 }
+            return listPoints;
         }
 
-        //return list of point
-        private void FindOppositeIndex(int value, int x, int y, out int xRes, out int yRes)
+
+        private struct MyPoint
         {
-            xRes = -1;
-            yRes = -1;
+            public int x;
+            public int y;
+            public MyPoint(int x, int y) { this.x = x; this.y = y; }
+        }
+        private List<MyPoint> FindOppositeIndexes(int value, int x, int y)
+        {
+            var listPoints = new List<MyPoint>();
 
             if (CheckNearestPoints(_map, x, y, value))
             {
-                GetOppositePoint(x, y, value, out xRes, out yRes);
+                var l = GetOppositePoint(x, y, value);
+                listPoints.AddRange(l);
             }
 
             for (var i = 1; i < _distance; ++i)
@@ -257,29 +266,29 @@ namespace Watermarking
 
                 if (CheckNearestPoints(_map, x + i, y, value))
                 {
-                    GetOppositePoint(x + i, y, value, out xRes, out yRes);
-                    return;
+                    var l = GetOppositePoint(x + i, y, value);
+                    listPoints.AddRange(l);
                 }
 
                 if (CheckNearestPoints(_map, x - i, y, value))
                 {
-                    GetOppositePoint(x - i, y, value, out xRes, out yRes);
-                    return;
+                    var l = GetOppositePoint(x - i, y, value);
+                    listPoints.AddRange(l);
                 }
 
                 if (CheckNearestPoints(_map, x, y + i, value))
                 {
-                    GetOppositePoint(x, y + 1, value, out xRes, out yRes);
-                    return;
+                    var l = GetOppositePoint(x, y + 1, value);
+                    listPoints.AddRange(l);
                 }
 
                 if (CheckNearestPoints(_map, x, y - i, value))
                 {
-                    GetOppositePoint(x, y - 1, value, out xRes, out yRes);
-                    return;
+                    var l = GetOppositePoint(x, y - 1, value);
+                    listPoints.AddRange(l);
                 };
-
             }
+            return listPoints;
         }
 
         private double Statistics(Polygon polygon, out int s0, out int s1)
@@ -297,8 +306,8 @@ namespace Watermarking
                         var coordinateMeters = CoordinateConverter.DegreesToMeters(coordinate);
                         if (polygon.Contains(new Point(coordinateMeters)))
                         {
-                            var x = (int)Convert.ToInt32((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
-                            var y = (int)Convert.ToInt32((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
+                            var x = Convert.ToInt32((coordinateMeters.X - _envelopeTile.MinX) / _extentDist);
+                            var y = Convert.ToInt32((coordinateMeters.Y - _envelopeTile.MinY) / _extentDist);
                             if (x == _extent || y == _extent)
                                 continue;
                             var mapValue = Convert.ToInt32(_map[x, y]);
@@ -321,11 +330,11 @@ namespace Watermarking
             return (double)Math.Abs(s0 - s1) / (s1 + s0);
         }
 
-        //check for valid feature, if not valid chose another point
         private void ChangeCoordinate(int value, int count, int s, Polygon polygon)
         {
             var step = (int)Math.Floor((double)s / count);
-            var count_changed = 0;
+            var countChanged = 0;
+            var countSuited = 0;
             foreach (var layer in Tile.Layers)
             {
                 foreach (var feature in layer.Features)
@@ -334,8 +343,11 @@ namespace Watermarking
                     var coordinates = geometry.Coordinates;
                     for (var j = 0; j < coordinates.Length; j++)
                     {
-                        if (count_changed / step >= count)
+                        if (countChanged >= count)
+                        {
+                            Console.WriteLine($"       {count} {countChanged}");
                             return;
+                        }
 
                         var coordinateMeters = CoordinateConverter.DegreesToMeters(coordinates[j]);
                         if (polygon.Contains(new Point(coordinateMeters)))
@@ -350,40 +362,70 @@ namespace Watermarking
                             if (mapValue == value)
                                 continue;
 
-                            if (count_changed % step == 0)
+                            countSuited++;
+
+                            if (countSuited % step == 0)
                             {
-                                FindOppositeIndex(mapValue, x, y, out int xNew, out int yNew);
+                                var listPoints = FindOppositeIndexes(mapValue, x, y);
 
-                                double xMeteres = _envelopeTile.MinX + xNew * _extentDist;
-                                double yMeteres = _envelopeTile.MinY + yNew * _extentDist;
-
-                                var coor = CoordinateConverter.MetersToDegrees(new Coordinate(xMeteres, yMeteres));
-
-                                if (x != xNew)
-                                    geometry.Coordinates[j].X = coor.X;
-                                if (y != yNew)
-                                    geometry.Coordinates[j].Y = coor.Y;
-
-                                //Console.WriteLine($"{feature.Attributes.GetValues()[0]} j: {j}, x: {x}, y: {y}, x new:{xNew}, y new: {yNew}, x m: {xMeteres}, y m: {yMeteres}, x d: {coor.X}, y d: {coor.Y}, value: {value}");
-
-                                for (var k = j + 1; k < coordinates.Length; k++)
+                                foreach (var point in listPoints)
                                 {
-                                    var coordinate = CoordinateConverter.DegreesToMeters(coordinates[k]);
-                                    if (coordinate.X == coordinateMeters.X && coordinate.Y == coordinateMeters.Y)
+                                    var geometryCopy = geometry.Copy();
+                                    double xMeteres = _envelopeTile.MinX + point.x * _extentDist;
+                                    double yMeteres = _envelopeTile.MinY + point.y * _extentDist;
+                                    var coor = CoordinateConverter.MetersToDegrees(new Coordinate(xMeteres, yMeteres));
+                                    var tmp = 0;
+                                    if (x != point.x)
+                                        geometryCopy.Coordinates[j].X = coor.X;
+                                    if (y != point.y)
+                                        geometryCopy.Coordinates[j].Y = coor.Y;
+                                    tmp++;
+
+                                    if (!geometryCopy.IsValid)
                                     {
-                                        geometry.Coordinates[k].X = coor.X;
-                                        geometry.Coordinates[k].Y = coor.Y;
-                                        count_changed++;
+                                        if (geometryCopy.GeometryType == "Polygon")
+                                        {
+                                            geometryCopy.Coordinates[^1].X = geometryCopy.Coordinates[0].X;
+                                            geometryCopy.Coordinates[^1].Y = geometryCopy.Coordinates[0].Y;
+                                        }
+                                        if (!geometryCopy.IsValid)
+                                            continue;
                                     }
 
+                                    for (var k = j + 1; k < geometryCopy.Coordinates.Length; k++)
+                                    {
+                                        var coordinate = CoordinateConverter.DegreesToMeters(geometryCopy.Coordinates[k]);
+                                        if (coordinate.X == coordinateMeters.X && coordinate.Y == coordinateMeters.Y)
+                                        {
+                                            if (x != point.x)
+                                                geometryCopy.Coordinates[k].X = coor.X;
+                                            if (y != point.y)
+                                                geometryCopy.Coordinates[k].Y = coor.Y;
+                                            tmp++;
+                                        }
+                                    }
+
+                                    if (!geometryCopy.IsValid)
+                                        continue;
+
+                                    countChanged += tmp;
+                                    //feature.Geometry = geometryCopy;
+                                    geometry = geometryCopy;
+                                    if (!feature.Geometry.IsValid)
+                                        Console.WriteLine("     not valid");
+                                    //var asd = CoordinateConverter.DegreesToMeters(feature.Geometry.Coordinates[j]);
+                                    //var x1 = Convert.ToInt32((asd.X - _envelopeTile.MinX) / _extentDist);
+                                    //var y1 = Convert.ToInt32((asd.Y - _envelopeTile.MinY) / _extentDist);
+                                    //Console.WriteLine($"{x1}, {y1}, {_map[x1, y1]}");
+                                    break;
                                 }
                             }
-
-                            count_changed++;
                         }
                     }
+                    feature.Geometry = geometry;
                 }
             }
+            Console.WriteLine($"       {count} {countChanged}");
         }
 
         public Watermark(string path, int x, int y, int z, int key, int sizeMessage, int distance = 2, int countPoints = 20, int extent = 4096, int m = 0)
